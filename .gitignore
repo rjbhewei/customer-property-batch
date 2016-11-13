@@ -3,3 +3,4 @@ logs
 gc.log
 *.iml
 *Test.go
+NOTICE.md
