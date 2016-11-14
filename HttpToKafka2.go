@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	mylog = log.New(os.Stdout, "hewei", log.LstdFlags)
+	mylog = log.New(os.Stdout, "", log.LstdFlags)
 )
 
 var (
@@ -105,7 +105,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 
 	if string(ctx.Method()) != "PUT" {
 		ctx.SetStatusCode(fasthttp.StatusMethodNotAllowed)
-		ctx.SetBody([]byte("请求方法错误"))
+		ctx.SetBody([]byte("{\"message\":\"请求方法错误\"}"))
 		return
 	}
 
@@ -123,21 +123,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 
 	err = nil
 
-	go s.uploadKafka(ctx, bean,err)
 
-	mylog.Println("all over")
-
-	if err != nil {
-		fmt.Fprintf(ctx, string("{\"message\":\"服务端响应出错\"}"))
-		ctx.SetContentType("application/json; charset=utf-8")
-		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-	} else {
-		fmt.Fprintf(ctx, string("{\"message\":\"成功了\"}"))
-		ctx.SetContentType("application/json; charset=utf-8")
-	}
-}
-
-func (s *Server) uploadKafka(ctx *fasthttp.RequestCtx,bean common.BatchUpdateBean,err error) {
 	tmpBean := &common.BatchUpdateBean{
 		Platform :bean.Platform,
 		TenantId :bean.TenantId,
@@ -163,10 +149,7 @@ func (s *Server) uploadKafka(ctx *fasthttp.RequestCtx,bean common.BatchUpdateBea
 		mylog.Println("分割后的tmpCustomer长度", len(tmpBean.Customers))
 		j, _ := json.Marshal(tmpBean)
 		tmpBean.Customers = nil
-		s.producer.Input() <- &sarama.ProducerMessage{
-			Topic: *topic,
-			Value: sarama.StringEncoder(string(j)),
-		}
+		go s.uploadKafka(j)
 		index = index + sendMaxNum;
 		loop++
 	}
@@ -181,6 +164,24 @@ func (s *Server) uploadKafka(ctx *fasthttp.RequestCtx,bean common.BatchUpdateBea
 		case msg := <-s.producer.Successes():
 			mylog.Println("Offset:", msg.Offset, "Partition:", msg.Partition)
 		}
+	}
+
+	mylog.Println("one batch over")
+
+	if err != nil {
+		fmt.Fprintf(ctx, string("{\"message\":\"服务端响应出错\"}"))
+		ctx.SetContentType("application/json; charset=utf-8")
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+	} else {
+		fmt.Fprintf(ctx, string("{\"message\":\"成功了\"}"))
+		ctx.SetContentType("application/json; charset=utf-8")
+	}
+}
+
+func (s *Server) uploadKafka(j []byte) {
+	s.producer.Input() <- &sarama.ProducerMessage{
+		Topic: *topic,
+		Value: sarama.StringEncoder(string(j)),
 	}
 }
 
