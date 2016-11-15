@@ -12,7 +12,6 @@ import (
 	"github.com/rjbhewei/customer-property-batch/common"
 	"encoding/json"
 	"gopkg.in/olivere/elastic.v3"
-	"log"
 )
 
 const (
@@ -73,7 +72,7 @@ func main() {
 
 	go func() {
 		for err := range consumer.Errors() {
-			log.Println(err)
+			mylog.Error(err)
 		}
 	}()
 
@@ -81,7 +80,7 @@ func main() {
 		elastic.SetURL(*urls),
 		elastic.SetMaxRetries(3))
 	if err != nil {
-		log.Panicln("创建es client error:", err)
+		mylog.Panic("创建es client error:", err)
 	}
 	mylog.Info("es信息:", client)
 
