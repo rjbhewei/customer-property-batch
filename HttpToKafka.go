@@ -32,7 +32,7 @@ func main() {
 
 	flag.Parse()
 
-	if *brokers == "" {
+	if *brokers == "" || *topic == "" || *addr == "" {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
