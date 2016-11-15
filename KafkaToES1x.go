@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	mylog = log.New(os.Stdout, "hewei", log.LstdFlags)
+	mylog = common.Log()
 )
 
 var (
@@ -71,7 +71,7 @@ func main() {
 	go func() {
 		<-c
 		if err := consumer.Close(); err != nil {
-			mylog.Println("kafka客户端出现异常关闭", err)
+			mylog.Info("kafka客户端出现异常关闭", err)
 		}
 	}()
 
@@ -87,7 +87,7 @@ func main() {
 		log.Panicln("创建es client error:", err)
 	}
 
-	mylog.Println("es信息:", client)
+	mylog.Info("es信息:", client)
 
 	eventCount := 0
 
@@ -102,20 +102,20 @@ func main() {
 		eventCount += 1
 
 		if offsets[message.Topic][message.Partition] != 0 && offsets[message.Topic][message.Partition] != message.Offset - 1 {
-			mylog.Printf("Unexpected offset on %s:%d. Expected %d, found %d, diff %d.\n", message.Topic, message.Partition, offsets[message.Topic][message.Partition] + 1, message.Offset, message.Offset - offsets[message.Topic][message.Partition] + 1)
+			mylog.Infof("Unexpected offset on %s:%d. Expected %d, found %d, diff %d.\n", message.Topic, message.Partition, offsets[message.Topic][message.Partition] + 1, message.Offset, message.Offset - offsets[message.Topic][message.Partition] + 1)
 		}
 
-		mylog.Println("Offset:",message.Offset,"Partition:",message.Partition)
+		mylog.Info("Offset:",message.Offset,"Partition:",message.Partition)
 
 		var bean common.BatchUpdateBean
 
 		err := json.Unmarshal(message.Value, &bean)
 
 		if err != nil {
-			mylog.Println("json 反序列化错误:", err)
+			mylog.Info("json 反序列化错误:", err)
 		}
 
-		mylog.Println(bean)
+		mylog.Info(bean)
 
 		s := client.Bulk()
 
@@ -133,11 +133,11 @@ func main() {
 				Properties:[]Property{*property},
 			}
 
-			mylog.Println(info)
+			mylog.Info(info)
 
 			id := common.GenerateId(info.Customerno, info.Platform, info.TenantId)
 
-			mylog.Println(id)
+			mylog.Info(id)
 
 			propertyMap := map[string]string{
 				"id":property.Id,
@@ -153,7 +153,7 @@ func main() {
 				ScriptParams(map[string]interface{}{"property": propertyMap}).
 				Upsert(info)
 
-			mylog.Println(Request)
+			mylog.Info(Request)
 
 			s = s.Add(Request)
 		}
@@ -161,15 +161,15 @@ func main() {
 		bulkResponse, err := s.Do()
 
 		if err != nil {
-			mylog.Println("error:", err)
+			mylog.Info("error:", err)
 		}
 		if bulkResponse.Errors {
-			mylog.Println("es bulk error")
+			mylog.Info("es bulk error")
 		}
 
 		for index := 0; index < len(bulkResponse.Items); index++ {
 			item := bulkResponse.Items[index]
-			mylog.Println(item);
+			mylog.Info(item);
 		}
 
 		offsets[message.Topic][message.Partition] = message.Offset
@@ -177,9 +177,9 @@ func main() {
 		consumer.CommitUpto(message)
 	}
 
-	mylog.Printf("Processed %d events.", eventCount)
+	mylog.Infof("Processed %d events.", eventCount)
 
-	mylog.Printf("%+v", offsets)
+	mylog.Infof("%+v", offsets)
 }
 
 type CustomerInfo struct {
