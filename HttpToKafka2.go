@@ -10,11 +10,11 @@ import (
 	"github.com/Shopify/sarama"
 	"encoding/json"
 	"time"
-	"github.com/rjbhewei/customer-property-batch-kafka/common"
+	"github.com/rjbhewei/customer-property-batch/common"
 )
 
 var (
-	mylog = log.New(os.Stdout, "", log.LstdFlags)
+	mylog = common.Log()
 )
 
 var (
@@ -38,7 +38,7 @@ func main() {
 
 	brokerList := strings.Split(*brokers, ",")
 
-	mylog.Printf("kakfa服务器列表: %s", strings.Join(brokerList, ", "))
+	mylog.Infof("kakfa服务器列表: %s", strings.Join(brokerList, ", "))
 
 	producer := asyncProducer(brokerList);
 
@@ -65,7 +65,7 @@ func (s *Server) run() error {
 		h = fasthttp.CompressHandler(h)
 	}
 
-	mylog.Printf("Listening for requests on %s...\n", *addr)
+	mylog.Infof("Listening for requests on %s...", *addr)
 
 	server := &fasthttp.Server{
 		Handler: h,
@@ -85,14 +85,14 @@ func asyncProducer(brokerList []string) sarama.AsyncProducer {
 	config.Producer.Return.Errors = true
 	producer, err := sarama.NewAsyncProducer(brokerList, config)
 	if err != nil {
-		mylog.Fatalln("启动kafka异步生产者失败:", err)
+		mylog.Error("启动kafka异步生产者失败:", err)
 	}
 	return producer
 }
 
 func (s *Server) close() error {
 	if err := s.producer.Close(); err != nil {
-		mylog.Println("关闭kafka生产者失败", err)
+		mylog.Error("关闭kafka生产者失败:", err)
 	}
 	return nil
 }
@@ -109,17 +109,17 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	mylog.Println("body len:", len(ctx.PostBody()));
+	mylog.Info("body len:", len(ctx.PostBody()));
 
 	var bean common.BatchUpdateBean
 
 	err := json.Unmarshal(ctx.PostBody(), &bean)
 
 	if err != nil {
-		mylog.Println("request to json error:", err)
+		mylog.Info("request to json error:", err)
 	}
 
-	mylog.Println("customer array len:", len(bean.Customers));
+	mylog.Info("customer array len:", len(bean.Customers));
 
 	err = nil
 
@@ -138,7 +138,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 	loop := 0
 
 	for index := 0; index < cLen; {
-		mylog.Println("index:", index)
+		mylog.Info("index:", index)
 		start := index
 		end := index + sendMaxNum
 		if (end > cLen) {
@@ -146,7 +146,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 		}
 		tmpCustomers := bean.Customers[start:end]
 		tmpBean.Customers = tmpCustomers;
-		mylog.Println("分割后的tmpCustomer长度", len(tmpBean.Customers))
+		mylog.Info("分割后的tmpCustomer长度", len(tmpBean.Customers))
 		j, _ := json.Marshal(tmpBean)
 		tmpBean.Customers = nil
 		go s.uploadKafka(j)
@@ -154,19 +154,19 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 		loop++
 	}
 
-	mylog.Print("loop:", loop)
+	mylog.Infof("loop:", loop)
 
 	for i := 0; i < loop; i++ {
 		select {
 		case msg := <-s.producer.Errors():
-			mylog.Println(msg.Err)
+			mylog.Error(msg.Err)
 			err=msg.Err
 		case msg := <-s.producer.Successes():
-			mylog.Println("Offset:", msg.Offset, "Partition:", msg.Partition)
+			mylog.Info("Offset:", msg.Offset, "Partition:", msg.Partition)
 		}
 	}
 
-	mylog.Println("one batch over")
+	mylog.Info("one batch over")
 
 	if err != nil {
 		fmt.Fprintf(ctx, string("{\"message\":\"服务端响应出错\"}"))
@@ -192,7 +192,7 @@ func syncProducer(brokerList []string) sarama.SyncProducer {
 	//config.Producer.MaxMessageBytes=100*1024*1024
 	producer, err := sarama.NewSyncProducer(brokerList, config)
 	if err != nil {
-		mylog.Fatalln("启动kafka同步生产者失败:", err)
+		mylog.Error("启动kafka同步生产者失败:", err)
 	}
 	return producer
 }

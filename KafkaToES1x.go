@@ -12,7 +12,7 @@ import (
 	"github.com/wvanbergen/kazoo-go"
 	"encoding/json"
 	"gopkg.in/olivere/elastic.v2"
-	"github.com/rjbhewei/customer-property-batch-kafka/common"
+	"github.com/rjbhewei/customer-property-batch/common"
 )
 
 const (

@@ -10,7 +10,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/wvanbergen/kafka/consumergroup"
 	"github.com/wvanbergen/kazoo-go"
-	"github.com/rjbhewei/customer-property-batch-kafka/common"
+	"github.com/rjbhewei/customer-property-batch/common"
 	"encoding/json"
 	"gopkg.in/olivere/elastic.v3"
 )
