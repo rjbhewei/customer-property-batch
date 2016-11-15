@@ -19,7 +19,7 @@ const (
 	DefaultKafkaTopics = "bbb"
 	DefaultConsumerGroup = "KafkaToES"
 	DefaultZookeeper = "172.18.2.121:2181,172.18.2.40:2181,172.18.2.39:2181"
-	DefaultUrls = "172.18.2.180:9200"
+	DefaultUrls = "172.18.2.179:9200"
 	DefaultESIndex = "customer2"
 	DefaultESType = "customer"
 	SCRIPT_STRING = "if(ctx._source.properties.any{it.id==property.id}){i=0;ctx._source.properties.each({if(it.id==property.id){ctx._source.properties[i]=property;};++i;});}else{ctx._source.properties+=property;}"
