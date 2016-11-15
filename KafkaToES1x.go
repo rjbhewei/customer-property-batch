@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -61,7 +60,7 @@ func main() {
 	consumer, consumerErr := consumergroup.JoinConsumerGroup(*consumerGroup, kafkaTopics, zookeeperNodes, config)
 
 	if consumerErr != nil {
-		log.Fatalln(consumerErr)
+		mylog.Error(consumerErr)
 	}
 
 	c := make(chan os.Signal, 1)
@@ -77,14 +76,14 @@ func main() {
 
 	go func() {
 		for err := range consumer.Errors() {
-			log.Println(err)
+			mylog.Error(err)
 		}
 	}()
 
 	client, err := elastic.NewClient(elastic.SetURL(*urls), elastic.SetMaxRetries(3))
 
 	if err != nil {
-		log.Panicln("创建es client error:", err)
+		mylog.Panic("创建es client error:", err)
 	}
 
 	mylog.Info("es信息:", client)

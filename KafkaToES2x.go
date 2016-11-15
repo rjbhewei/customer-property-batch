@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/rjbhewei/customer-property-batch/common"
 	"encoding/json"
 	"gopkg.in/olivere/elastic.v3"
+	"log"
 )
 
 const (
@@ -59,7 +59,7 @@ func main() {
 
 	consumer, consumerErr := consumergroup.JoinConsumerGroup(*consumerGroup, kafkaTopics, zookeeperNodes, config)
 	if consumerErr != nil {
-		log.Fatalln(consumerErr)
+		mylog.Error(consumerErr)
 	}
 
 	c := make(chan os.Signal, 1)
