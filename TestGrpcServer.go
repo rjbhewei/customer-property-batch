@@ -30,11 +30,15 @@ func (s *server) ToEncrypt(ctx context.Context, in *pb.EncryptRequest) (*pb.Encr
 
 func main() {
 	lis, err := net.Listen("tcp", port)
+
 	if err != nil {
 		mylog.Errorf("failed to listen: %v", err)
 	}
+
 	s := grpc.NewServer()
+
 	pb.RegisterEncryptServer(s, &server{})
+
 	if err := s.Serve(lis); err != nil {
 		mylog.Errorf("failed to serve: %v", err)
 	}

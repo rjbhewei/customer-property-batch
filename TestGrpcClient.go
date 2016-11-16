@@ -30,11 +30,13 @@ func init() {
 
 func main() {
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
+
 	if err != nil {
 		mylog.Errorf("did not connect: %v", err)
 	}
 
 	defer conn.Close()
+
 	c := pb.NewEncryptClient(conn)
 
 	r, err := c.ToEncrypt(context.Background(), &pb.EncryptRequest{
@@ -48,7 +50,9 @@ func main() {
 	if err != nil {
 		mylog.Errorf("rpc encrypt error: %v", err)
 	}
+
 	j, _ := json.Marshal(r)
-	mylog.Info("EncryptReply : %s", string(j))
+
+	mylog.Infof("EncryptReply : %s", string(j))
 }
 
