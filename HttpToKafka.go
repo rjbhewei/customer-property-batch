@@ -103,7 +103,7 @@ type Server struct {
 func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 
 	if string(ctx.Method()) != "PUT" {
-		ctx(ctx, fasthttp.StatusMethodNotAllowed, MStatusMethodNotAllowed)
+		toctx(ctx, fasthttp.StatusMethodNotAllowed, MStatusMethodNotAllowed)
 		return
 	}
 
@@ -115,7 +115,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 
 	if err != nil {
 		mylog.Error("json error:", err)
-		ctx(ctx, fasthttp.StatusBadRequest, MStatusBadRequest)
+		toctx(ctx, fasthttp.StatusBadRequest, MStatusBadRequest)
 		return
 	}
 
