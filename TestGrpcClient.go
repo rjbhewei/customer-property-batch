@@ -49,6 +49,7 @@ func main() {
 
 	if err != nil {
 		mylog.Errorf("rpc encrypt error: %v", err)
+		return
 	}
 
 	j, _ := json.Marshal(r)
