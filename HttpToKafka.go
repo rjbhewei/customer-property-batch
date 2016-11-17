@@ -10,6 +10,7 @@ import (
 	"time"
 	"github.com/rjbhewei/customer-property-batch/common"
 	"runtime"
+	"sync/atomic"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 	MStatusOK = string("{\"message\":\"成功了\"}")
 	MStatusMethodNotAllowed = string("{\"message\":\"请求方法错误\"}")
 	MStatusBadRequest = string("{\"message\":\"请求json解析错误\"}")
+	atomicIndex int64 = 0
 )
 
 var (
@@ -26,28 +28,36 @@ var (
 
 var (
 	topic = flag.String("topic", "bbb", "kafka的topic")
+	producerNum = flag.Int("producers", 1, "kafka producer 数量")
+	cpuratio = flag.Int("cpuratio", 2, "GOMAXPROCS=runtime.NumCPU()*cpuratio")
 	brokers = flag.String("brokers", "172.18.2.35:9092,172.18.2.36:9092,172.18.2.38:9092", "kafka连接地址,用逗号分隔")
 )
 
 func main() {
 
-	runtime.GOMAXPROCS(runtime.NumCPU() * 2)
+	runtime.GOMAXPROCS(runtime.NumCPU() * *cpuratio)
 
 	flag.Parse()
 
-	if *brokers == "" || *topic == "" || *addr == "" {
+	if *brokers == "" || *topic == "" || *addr == ""||*producerNum < 1 {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
 	brokerList := strings.Split(*brokers, ",")
 
-	mylog.Infof("kakfa服务器列表: %s", strings.Join(brokerList, ", "))
+	mylog.Infof("kakfa server list: %s", strings.Join(brokerList, ", "))
+	mylog.Infof("kakfa topic: %s", *topic)
+	mylog.Infof("kakfa producer number: %d", *producerNum)
 
-	producer := asyncProducer(brokerList);
+	producers := make([]sarama.AsyncProducer, *producerNum)
+
+	for index := 0; index < *producerNum; index++ {
+		producers[index] = asyncProducer(brokerList);
+	}
 
 	server := &Server{
-		producer: producer,
+		producers: producers,
 	}
 
 	defer func() {
@@ -93,14 +103,16 @@ func asyncProducer(brokerList []string) sarama.AsyncProducer {
 }
 
 func (s *Server) close() error {
-	if err := s.producer.Close(); err != nil {
-		mylog.Error("关键kafka生产者失败", err)
+	for _, producer := range s.producers {
+		if err := producer.Close(); err != nil {
+			mylog.Error("关闭kafka生产者失败", err)
+		}
 	}
 	return nil
 }
 
 type Server struct {
-	producer sarama.AsyncProducer
+	producers []sarama.AsyncProducer
 }
 
 func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
@@ -137,37 +149,63 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 
 	loop := 0
 
+	producerList := make([]sarama.AsyncProducer, 5, 5)
+
 	for index := 0; index < cLen; {
+
 		mylog.Debug("index:", index)
+
 		start := index
+
 		end := index + sendMaxNum
+
 		if (end > cLen) {
 			end = cLen
 		}
+
 		tmpCustomers := bean.Customers[start:end]
+
 		tmpBean.Customers = tmpCustomers;
-		mylog.Debug("分割后的tmpCustomer长度:", len(tmpBean.Customers))
+
+		mylog.Debug("after split tmpCustomer len:", len(tmpBean.Customers))
+
 		j, _ := json.Marshal(tmpBean)
+
 		tmpBean.Customers = nil
-		s.producer.Input() <- &sarama.ProducerMessage{
+
+		i := atomic.AddInt64(&atomicIndex, 1)
+
+		producer := s.producers[i % int64(*producerNum)]
+
+		mylog.Debug("producer:", producer)
+
+		producerList = append(producerList, producer)
+
+		producer.Input() <- &sarama.ProducerMessage{
 			Topic: *topic,
 			Value: sarama.StringEncoder(string(j)),
 		}
-		index = index + sendMaxNum;
+
+		index = end;
 		loop++
 	}
 
-	mylog.Info("loop:", loop)
+	mylog.Infof("kafka producer send loop:%d ", loop)
 
-	for i := 0; i < loop; i++ {
+	for _, producer := range producerList {
+		if (producer == nil) {
+			continue
+		}
 		select {
-		case msg := <-s.producer.Errors():
+		case msg := <-producer.Errors():
 			mylog.Error(msg.Err)
-		case msg := <-s.producer.Successes():
+		case msg := <-producer.Successes():
 			mylog.Debugf("Offset:%d,Partition:%d", msg.Offset, msg.Partition)
 		}
 	}
+
 	mylog.Info("one batch over")
+
 	toctx(ctx, fasthttp.StatusOK, MStatusOK)
 }
 
