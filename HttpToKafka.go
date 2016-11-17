@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"time"
 	"github.com/rjbhewei/customer-property-batch/common"
+	"runtime"
 )
 
 var (
@@ -29,6 +30,8 @@ var (
 )
 
 func main() {
+
+	runtime.GOMAXPROCS(runtime.NumCPU() * 2)
 
 	flag.Parse()
 
@@ -135,7 +138,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 	loop := 0
 
 	for index := 0; index < cLen; {
-		mylog.Info("index:", index)
+		mylog.Debug("index:", index)
 		start := index
 		end := index + sendMaxNum
 		if (end > cLen) {
@@ -143,7 +146,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 		}
 		tmpCustomers := bean.Customers[start:end]
 		tmpBean.Customers = tmpCustomers;
-		mylog.Info("分割后的tmpCustomer长度:", len(tmpBean.Customers))
+		mylog.Debug("分割后的tmpCustomer长度:", len(tmpBean.Customers))
 		j, _ := json.Marshal(tmpBean)
 		tmpBean.Customers = nil
 		s.producer.Input() <- &sarama.ProducerMessage{
@@ -161,7 +164,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 		case msg := <-s.producer.Errors():
 			mylog.Error(msg.Err)
 		case msg := <-s.producer.Successes():
-			mylog.Infof("Offset:%d,Partition:%d", msg.Offset, msg.Partition)
+			mylog.Debugf("Offset:%d,Partition:%d", msg.Offset, msg.Partition)
 		}
 	}
 	mylog.Info("one batch over")
