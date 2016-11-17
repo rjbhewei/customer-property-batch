@@ -161,7 +161,7 @@ func (s *Server) handleFastHTTP(ctx *fasthttp.RequestCtx) {
 		case msg := <-s.producer.Errors():
 			mylog.Error(msg.Err)
 		case msg := <-s.producer.Successes():
-			mylog.Infof("Offset:%s,Partition:%s", msg.Offset, msg.Partition)
+			mylog.Infof("Offset:%d,Partition:%d", msg.Offset, msg.Partition)
 		}
 	}
 	mylog.Info("one batch over")
