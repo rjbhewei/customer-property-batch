@@ -12,6 +12,7 @@ import (
 	"github.com/rjbhewei/customer-property-batch/common"
 	"encoding/json"
 	"gopkg.in/olivere/elastic.v3"
+	"runtime"
 )
 
 const (
@@ -25,14 +26,14 @@ const (
 )
 
 var (
-	//mylog = log.New(os.Stdout, "hewei", log.LstdFlags)
 	mylog = common.Log()
 )
 
 var (
 	consumerGroup = flag.String("group", DefaultConsumerGroup, "consumer group的名字")
-	kafkaTopicsCSV = flag.String("topics", DefaultKafkaTopics, "用逗号分隔topic")
+	kafkaTopics = flag.String("topics", DefaultKafkaTopics, "用逗号分隔topic")
 	zookeeper = flag.String("zookeeper", DefaultZookeeper, "用逗号分隔zk信息")
+	cpuratio = flag.Int("cpuratio", 2, "GOMAXPROCS=runtime.NumCPU()*cpuratio")
 	urls = flag.String("urls", DefaultUrls, "用逗号分隔es url信息")
 	ESIndex = flag.String("esindex", DefaultESIndex, "es的索引字段")
 	ESType = flag.String("estype", DefaultESType, "es的type字段")
@@ -40,10 +41,12 @@ var (
 )
 
 func main() {
-	//runtime.GOMAXPROCS(runtime.NumCPU())
+
+	runtime.GOMAXPROCS(runtime.NumCPU() * *cpuratio)
+
 	flag.Parse()
 
-	if *zookeeper == "" {
+	if *zookeeper == "" || *kafkaTopics == ""{
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -54,15 +57,18 @@ func main() {
 
 	zookeeperNodes, config.Zookeeper.Chroot = kazoo.ParseConnectionString(*zookeeper)
 
-	kafkaTopics := strings.Split(*kafkaTopicsCSV, ",")
+	kafkaTopics := strings.Split(*kafkaTopics, ",")
 
 	consumer, consumerErr := consumergroup.JoinConsumerGroup(*consumerGroup, kafkaTopics, zookeeperNodes, config)
+
 	if consumerErr != nil {
 		mylog.Error(consumerErr)
 	}
 
 	c := make(chan os.Signal, 1)
+
 	signal.Notify(c, os.Interrupt)
+
 	go func() {
 		<-c
 		if err := consumer.Close(); err != nil {
@@ -76,28 +82,31 @@ func main() {
 		}
 	}()
 
-	client, err := elastic.NewClient(
-		elastic.SetURL(*urls),
-		elastic.SetMaxRetries(3))
+	client, err := elastic.NewClient(elastic.SetURL(*urls), elastic.SetMaxRetries(3))
+
 	if err != nil {
 		mylog.Panic("创建es client error:", err)
 	}
+
 	mylog.Info("es信息:", client)
 
 	eventCount := 0
+
 	offsets := make(map[string]map[int32]int64)
 
 	for message := range consumer.Messages() {
+
 		if offsets[message.Topic] == nil {
 			offsets[message.Topic] = make(map[int32]int64)
 		}
 
 		eventCount += 1
+
 		if offsets[message.Topic][message.Partition] != 0 && offsets[message.Topic][message.Partition] != message.Offset - 1 {
 			mylog.Infof("Unexpected offset on %s:%d. Expected %d, found %d, diff %d.\n", message.Topic, message.Partition, offsets[message.Topic][message.Partition] + 1, message.Offset, message.Offset - offsets[message.Topic][message.Partition] + 1)
 		}
 
-		mylog.Info("Offset:",message.Offset,"Partition:",message.Partition)
+		mylog.Debugf("Offset:%d,Partition:%d", message.Offset, message.Partition)
 
 		var bean common.BatchUpdateBean
 
@@ -105,32 +114,41 @@ func main() {
 
 		if err != nil {
 			mylog.Info("json 反序列化错误:", err)
+			continue
 		}
 
-		//mylog.Println(bean)
+		mylog.Debug(bean)
+
 		s := client.Bulk()
+
 		for index := 0; index < len(bean.Customers); index++ {
+
 			property := &Property{
 				Id:bean.PropertyId,
 				Value:bean.Value,
 			}
+
 			info := &CustomerInfo{
 				Customerno:bean.Customers[index],
 				Platform:bean.Platform,
 				TenantId:bean.TenantId,
 				Properties:[]Property{*property},
 			}
-			//mylog.Println(info)
+
+			mylog.Debug(info)
+
 			id := common.GenerateId(info.Customerno, info.Platform, info.TenantId)
-			//mylog.Println(id)
+
+			mylog.Debug(id)
 
 			propertyMap := map[string]string{
 				"id":property.Id,
 				"value":property.Value,
 			}
+
 			script := elastic.NewScriptInline(SCRIPT_STRING).Param("property", propertyMap)
-			Request := elastic.
-			NewBulkUpdateRequest().
+
+			Request := elastic.NewBulkUpdateRequest().
 				Index(*ESIndex).
 				Type(*ESType).
 				Id(id).
@@ -138,7 +156,6 @@ func main() {
 				Script(script).
 				Upsert(info)
 
-			//mylog.Println(Request)
 			s = s.Add(Request)
 		}
 
@@ -151,16 +168,18 @@ func main() {
 			mylog.Info("es bulk error")
 		}
 
-		//for index := 0; index < len(bulkResponse.Items); index++ {
-		//	item := bulkResponse.Items[index]
-		//	mylog.Println(item);
-		//}
+		for index := 0; index < len(bulkResponse.Items); index++ {
+			item := bulkResponse.Items[index]
+			mylog.Debug(item);
+		}
 
 		offsets[message.Topic][message.Partition] = message.Offset
+
 		consumer.CommitUpto(message)
 	}
 
 	mylog.Infof("Processed %d events.", eventCount)
+
 	mylog.Infof("%+v", offsets)
 }
 

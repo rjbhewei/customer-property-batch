@@ -25,6 +25,7 @@ const (
 )
 
 var (
+	//mylog = log.New(os.Stdout, "hewei", log.LstdFlags)
 	mylog = common.Log()
 )
 
