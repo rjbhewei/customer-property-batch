@@ -20,7 +20,7 @@ var (
 )
 
 const (
-	address = "localhost:50051"
+	address = "172.18.21.106:8888"
 )
 
 func init() {

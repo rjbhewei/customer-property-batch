@@ -13,6 +13,10 @@ import (
 	"encoding/json"
 	"gopkg.in/olivere/elastic.v3"
 	"runtime"
+	"google.golang.org/grpc"
+	pb "github.com/rjbhewei/customer-property-batch/helloworld"
+	"golang.org/x/net/context"
+	"fmt"
 )
 
 const (
@@ -22,6 +26,8 @@ const (
 	DefaultUrls = "172.18.2.179:9200"
 	DefaultESIndex = "customer2"
 	DefaultESType = "customer"
+	DefaultEtcd = "http://172.18.21.62:2379"
+	DefaultServicePath = "/service/local/platform/qa/cryptserver/1.0"
 	SCRIPT_STRING = "if(ctx._source.properties.any{it.id==property.id}){i=0;ctx._source.properties.each({if(it.id==property.id){ctx._source.properties[i]=property;};++i;});}else{ctx._source.properties+=property;}"
 )
 
@@ -37,6 +43,8 @@ var (
 	urls = flag.String("urls", DefaultUrls, "用逗号分隔es url信息")
 	ESIndex = flag.String("esindex", DefaultESIndex, "es的索引字段")
 	ESType = flag.String("estype", DefaultESType, "es的type字段")
+	ectd = flag.String("etcd", DefaultEtcd, "访问加密微服务")
+	servicePath = flag.String("servicePath", DefaultServicePath, "访问加密微服务")
 	zookeeperNodes []string
 )
 
@@ -94,6 +102,8 @@ func main() {
 
 	offsets := make(map[string]map[int32]int64)
 
+	encryptClient := encryptClient()
+
 	for message := range consumer.Messages() {
 
 		if offsets[message.Topic] == nil {
@@ -108,16 +118,39 @@ func main() {
 
 		mylog.Debugf("Offset:%d,Partition:%d", message.Offset, message.Partition)
 
-		var bean common.BatchUpdateBean
+		var bean1 common.BatchUpdateBean
 
-		err := json.Unmarshal(message.Value, &bean)
+		err := json.Unmarshal(message.Value, &bean1)
 
 		if err != nil {
 			mylog.Info("json 反序列化错误:", err)
 			continue
 		}
 
-		mylog.Debug(bean)
+		mylog.Debug(bean1)
+
+		bean1Len := len(bean1.Customers)
+
+		bean, err := encryptClient.ToEncrypt(context.Background(), &pb.EncryptRequest{
+			Customers: bean1.Customers,
+			Platform: bean1.Platform,
+			TenantId: bean1.TenantId,
+			Value: bean1.Value,
+			PropertyId: bean1.PropertyId,
+		})
+
+		bean2Len:=len(bean.Customers)
+
+		if err != nil {
+			//encryptClient := encryptClient()
+			//bean, err = encryptClient.ToEncrypt(context.Background(), &pb.EncryptRequest{
+			//	Customers: bean.Customers,
+			//	Platform: bean.Platform,
+			//	TenantId: bean.TenantId,
+			//	Value: bean.Value,
+			//	PropertyId: bean.PropertyId,
+			//})
+		}
 
 		s := client.Bulk()
 
@@ -176,11 +209,28 @@ func main() {
 		offsets[message.Topic][message.Partition] = message.Offset
 
 		consumer.CommitUpto(message)
+
+		mylog.Infof("加密前数据:%d,加密后数据:%d", bean1Len,bean2Len)
+
 	}
 
 	mylog.Infof("Processed %d events.", eventCount)
 
 	mylog.Infof("%+v", offsets)
+}
+
+func encryptClient() pb.EncryptClient {
+
+	host, port := common.EtcdService(*ectd, *servicePath)
+	//host, port :="172.18.21.106",8888
+
+	conn, err := grpc.Dial(fmt.Sprint(host,":",port), grpc.WithInsecure())
+
+	if err != nil {
+		mylog.Errorf("did not connect: %v", err)
+	}
+
+	return pb.NewEncryptClient(conn)
 }
 
 type CustomerInfo struct {

@@ -7,3 +7,8 @@ type BatchUpdateBean struct {
 	PropertyId string   `json:"propertyId"`
 	Value string       	`json:"value"`
 }
+
+type EtcdNode struct {
+	Host string   `json:"host"`
+	Port int   `json:"port"`
+}
