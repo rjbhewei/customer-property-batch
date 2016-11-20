@@ -27,7 +27,9 @@ const (
 	DefaultESIndex = "customer2"
 	DefaultESType = "customer"
 	DefaultEtcd = "http://172.18.21.62:2379"
-	DefaultServicePath = "/service/local/platform/qa/cryptserver/1.0"
+	DefaultConsul = "10.117.8.138:8500"
+	//DefaultServicePath = "/service/local/platform/qa/cryptserver/1.0" //etcd
+	DefaultServicePath = "/cryptserver/1.0"
 	SCRIPT_STRING = "if(ctx._source.properties.any{it.id==property.id}){i=0;ctx._source.properties.each({if(it.id==property.id){ctx._source.properties[i]=property;};++i;});}else{ctx._source.properties+=property;}"
 )
 
@@ -44,6 +46,7 @@ var (
 	ESIndex = flag.String("esindex", DefaultESIndex, "es的索引字段")
 	ESType = flag.String("estype", DefaultESType, "es的type字段")
 	ectd = flag.String("etcd", DefaultEtcd, "访问加密微服务")
+	consul = flag.String("consul", DefaultConsul, "访问加密微服务")
 	servicePath = flag.String("servicePath", DefaultServicePath, "访问加密微服务")
 	zookeeperNodes []string
 )
@@ -221,8 +224,10 @@ func main() {
 
 func encryptClient() pb.EncryptClient {
 
-	host, port := common.EtcdService(*ectd, *servicePath)
+	host, port := common.ConsulService(*consul, *servicePath)
 	//host, port :="172.18.21.106",8888
+
+	mylog.Infof("host:%s,port:%d", host, port)
 
 	conn, err := grpc.Dial(fmt.Sprint(host,":",port), grpc.WithInsecure())
 

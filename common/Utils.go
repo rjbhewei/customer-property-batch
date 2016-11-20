@@ -8,6 +8,10 @@ import (
 	"github.com/coreos/etcd/client"
 	"golang.org/x/net/context"
 	"time"
+	"fmt"
+	"github.com/hashicorp/consul/api"
+	"strings"
+	"strconv"
 )
 
 //---------------common
@@ -81,5 +85,31 @@ func EtcdService(url string, path string) (string, int) { // 加密服务只有�
 	mylog.Info(etcdNode)
 
 	return etcdNode.Host, etcdNode.Port
+
+}
+
+func ConsulService(url string, path string) (string, int) {// 加密服务只有一个进程
+	config := api.DefaultConfig()
+	config.Address = url
+	client, err := api.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+	catalog := client.Catalog()
+	service, _, err := catalog.Service("/cryptserver/1.0", "", nil);
+
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("KV: %v", service[0].ServiceTags)
+
+	var port int
+	for _, str := range service[0].ServiceTags {
+		if strings.Contains(str, "PORT_8080") {
+			mylog.Info("解析consul port:", str)
+			port, _ = strconv.Atoi(strings.SplitAfter(str, "=")[1])
+		}
+	}
+	return service[0].ServiceAddress, port
 
 }
