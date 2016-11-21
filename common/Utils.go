@@ -6,12 +6,11 @@ import (
 
 	"encoding/json"
 	"github.com/coreos/etcd/client"
-	"golang.org/x/net/context"
-	"time"
-	"fmt"
 	"github.com/hashicorp/consul/api"
-	"strings"
+	"golang.org/x/net/context"
 	"strconv"
+	"strings"
+	"time"
 )
 
 //---------------common
@@ -43,15 +42,14 @@ func Log() *logging.Logger {
 
 //---------------etcd
 
-func EtcdService(url string, path string) (string, int) { // 加密服务只有一个进程
+// 加密服务只有一个进程
+func EtcdService(url string, path string) (string, int) {
 
-	cfg := client.Config{
+	c, err := client.New(client.Config{
 		Endpoints:               []string{url},
 		Transport:               client.DefaultTransport,
 		HeaderTimeoutPerRequest: time.Second,
-	}
-
-	c, err := client.New(cfg)
+	})
 
 	if err != nil {
 		mylog.Error(err)
@@ -60,56 +58,73 @@ func EtcdService(url string, path string) (string, int) { // 加密服务只有�
 
 	kapi := client.NewKeysAPI(c)
 
-	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 20 * time.Second)
 
 	resp, err := kapi.Get(ctx, path, &client.GetOptions{Sort: true, Recursive: true, Quorum: true})
 
+	if err != nil {
+		mylog.Error(err)
+		os.Exit(1)
+	}
+
 	var node string
 
-	if err != nil {
-		mylog.Fatal(err)
-	} else {
-		mylog.Infof("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
-		mylog.Infof("%q key has %q value\n", resp.Node.Key, resp.Node.Nodes)
-		for _, a := range resp.Node.Nodes {
-			mylog.Info(a)
-			node = a.Value
-			break
-		}
+	mylog.Infof("%q key has %q value \n", resp.Node.Key, resp.Node.Value)
+
+	mylog.Infof("%q key has %q value \n", resp.Node.Key, resp.Node.Nodes)
+
+	for _, a := range resp.Node.Nodes {
+		mylog.Info(a)
+		node = a.Value
+		break
 	}
 
 	var etcdNode EtcdNode
 
 	json.Unmarshal([]byte(node), &etcdNode)
 
-	mylog.Info(etcdNode)
+	mylog.Infof("host:%s, port:%d", etcdNode.Host, etcdNode.Port)
 
 	return etcdNode.Host, etcdNode.Port
 
 }
 
-func ConsulService(url string, path string) (string, int) {// 加密服务只有一个进程
+//---------------consul
+
+// 加密服务只有一个进程
+func ConsulService(url string, path string) (string, int) {
+
 	config := api.DefaultConfig()
+
 	config.Address = url
+
 	client, err := api.NewClient(config)
-	if err != nil {
-		panic(err)
-	}
-	catalog := client.Catalog()
-	service, _, err := catalog.Service(path, "", nil);
 
 	if err != nil {
-		panic(err)
+		mylog.Error(err)
+		os.Exit(1)
 	}
-	fmt.Printf("KV: %v", service[0].ServiceTags)
+
+	service, _, err := client.Catalog().Service(path, "", nil)
+
+	if err != nil {
+		mylog.Error(err)
+		os.Exit(1)
+	}
+
+	mylog.Infof("KV: %v", service[0].ServiceTags)
 
 	var port int
+
 	for _, str := range service[0].ServiceTags {
 		if strings.Contains(str, "PORT_8080") {
 			mylog.Info("解析consul port:", str)
 			port, _ = strconv.Atoi(strings.SplitAfter(str, "=")[1])
 		}
 	}
+
+	mylog.Infof("host:%s, port:%d", service[0].ServiceAddress, port)
+
 	return service[0].ServiceAddress, port
 
 }
