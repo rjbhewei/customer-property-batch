@@ -61,7 +61,7 @@ func main() {
 	}
 
 	defer func() {
-		if err := server.close(); err != nil {
+		if err := server.Close(); err != nil {
 			mylog.Error("Failed to close server", err)
 		}
 	}()
@@ -102,7 +102,7 @@ func asyncProducer(brokerList []string) sarama.AsyncProducer {
 	return producer
 }
 
-func (s *Server) close() error {
+func (s *Server) Close() error {
 	for _, producer := range s.producers {
 		if err := producer.Close(); err != nil {
 			mylog.Error("关闭kafka生产者失败", err)
