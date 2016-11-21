@@ -96,7 +96,7 @@ func ConsulService(url string, path string) (string, int) {// 加密服务只有
 		panic(err)
 	}
 	catalog := client.Catalog()
-	service, _, err := catalog.Service("/cryptserver/1.0", "", nil);
+	service, _, err := catalog.Service(path, "", nil);
 
 	if err != nil {
 		panic(err)
