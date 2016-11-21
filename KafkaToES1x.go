@@ -105,7 +105,7 @@ func main() {
 			mylog.Infof("Unexpected offset on %s:%d. Expected %d, found %d, diff %d.\n", message.Topic, message.Partition, offsets[message.Topic][message.Partition] + 1, message.Offset, message.Offset - offsets[message.Topic][message.Partition] + 1)
 		}
 
-		mylog.Info("Offset:",message.Offset,"Partition:",message.Partition)
+		mylog.Info("Offset:", message.Offset, "Partition:", message.Partition)
 
 		var bean common.BatchUpdateBean
 

@@ -57,7 +57,7 @@ func main() {
 
 	flag.Parse()
 
-	if *zookeeper == "" || *kafkaTopics == ""{
+	if *zookeeper == "" || *kafkaTopics == "" {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -142,7 +142,7 @@ func main() {
 			PropertyId: bean1.PropertyId,
 		})
 
-		bean2Len:=len(bean.Customers)
+		bean2Len := len(bean.Customers)
 
 		if err != nil {
 			//encryptClient := encryptClient()
@@ -213,7 +213,7 @@ func main() {
 
 		consumer.CommitUpto(message)
 
-		mylog.Infof("加密前数据:%d,加密后数据:%d", bean1Len,bean2Len)
+		mylog.Infof("加密前数据:%d,加密后数据:%d", bean1Len, bean2Len)
 
 	}
 
@@ -229,7 +229,7 @@ func encryptClient() pb.EncryptClient {
 
 	mylog.Infof("host:%s,port:%d", host, port)
 
-	conn, err := grpc.Dial(fmt.Sprint(host,":",port), grpc.WithInsecure())
+	conn, err := grpc.Dial(fmt.Sprint(host, ":", port), grpc.WithInsecure())
 
 	if err != nil {
 		mylog.Errorf("did not connect: %v", err)

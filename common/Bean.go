@@ -1,11 +1,11 @@
 package common
 
 type BatchUpdateBean struct {
-	Customers []string 	`json:"customers"`
-	Platform string    	`json:"platform"`
-	TenantId string   	`json:"tenantId"`
+	Customers  []string    `json:"customers"`
+	Platform   string        `json:"platform"`
+	TenantId   string    `json:"tenantId"`
 	PropertyId string   `json:"propertyId"`
-	Value string       	`json:"value"`
+	Value      string        `json:"value"`
 }
 
 type EtcdNode struct {
