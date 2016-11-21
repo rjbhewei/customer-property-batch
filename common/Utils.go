@@ -79,13 +79,13 @@ func EtcdService(url string, path string) (string, int) {
 		break
 	}
 
-	var etcdNode EtcdNode
+	var serviceNode ServiceNode
 
-	json.Unmarshal([]byte(node), &etcdNode)
+	json.Unmarshal([]byte(node), &serviceNode)
 
-	mylog.Infof("host:%s, port:%d", etcdNode.Host, etcdNode.Port)
+	mylog.Infof("host:%s, port:%d", serviceNode.Host, serviceNode.Port)
 
-	return etcdNode.Host, etcdNode.Port
+	return serviceNode.Host, serviceNode.Port
 
 }
 

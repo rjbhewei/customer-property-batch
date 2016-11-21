@@ -8,7 +8,7 @@ type BatchUpdateBean struct {
 	Value      string        `json:"value"`
 }
 
-type EtcdNode struct {
+type ServiceNode struct {
 	Host string   `json:"host"`
 	Port int   `json:"port"`
 }
